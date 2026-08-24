@@ -2,6 +2,8 @@
 
 A comprehensive Streamlit application for interactive dimensionality reduction and data visualization. This tool allows users to explore various dimensionality reduction techniques with their own datasets or sample data, providing detailed analysis and parameter optimization capabilities.
 
+![Main view](docs/screenshot-main.png)
+
 ## Features
 
 - **Multiple Dimensionality Reduction Methods**:
@@ -10,7 +12,7 @@ A comprehensive Streamlit application for interactive dimensionality reduction a
   - Kernel PCA (with multiple kernels)
   - t-SNE (t-Distributed Stochastic Neighbor Embedding)
   - UMAP (Uniform Manifold Approximation and Projection)
-  - TRIMAP (TriMap)
+  - TRIMAP (TriMap, optional - see Installation)
   - PaCMAP (Pairwise Controlled Manifold Approximation)
 
 - **Data Input Options**:
@@ -45,6 +47,14 @@ docker run -d -p 8501:8501 streamlit-app
 - Python 3.12 or higher
 - [uv](https://docs.astral.sh/uv/) package manager (recommended) or pip
 
+TRIMAP requires the optional dependency group `trimap`, which pulls in `annoy`. `annoy` has no prebuilt wheels for modern Python versions and is compiled during installation, so a C++ build toolchain is required:
+
+- Windows: MSVC C++ Build Tools (workload "Desktop development with C++")
+- macOS: Xcode Command Line Tools (`xcode-select --install`)
+- Linux: `gcc` / `g++` (e.g. `apt install build-essential`)
+
+Without this group, the app runs normally with TRIMAP hidden from the method list.
+
 ## Installation
 
 ### Option 1: Using uv (Recommended)
@@ -62,6 +72,12 @@ docker run -d -p 8501:8501 streamlit-app
 
    ```cmd
    uv sync
+   ```
+
+   To include TRIMAP:
+
+   ```cmd
+   uv sync --extra trimap
    ```
 
 3. **Activate the virtual environment** (if not automatically activated):
@@ -87,7 +103,12 @@ docker run -d -p 8501:8501 streamlit-app
 
 3. **Install dependencies**:
    ```cmd
-   pip install streamlit numpy pandas plotly scikit-learn umap-learn trimap pacmap openpyxl seaborn
+   pip install streamlit numpy pandas plotly scikit-learn umap-learn pacmap openpyxl seaborn
+   ```
+
+   TRIMAP (optional, requires a C++ compiler):
+   ```cmd
+   pip install trimap annoy
    ```
 
 ## Running the Application
@@ -143,7 +164,11 @@ StreamlitDRV/
 ├── app.py                          # Main application entry point
 ├── pyproject.toml                  # Project configuration and dependencies
 ├── uv.lock                         # Locked dependency versions
+├── Dockerfile                      # Container build definition
+├── .dockerignore                   # Docker build context exclusions
+├── LICENSE                         # MIT license
 ├── README.md                       # This file
+├── docs/                           # Screenshots and documentation assets
 ├── src/                           # Source code modules
 │   ├── __init__.py                # Package initialization
 │   ├── config.py                  # Configuration and constants
@@ -153,6 +178,7 @@ StreamlitDRV/
 │   ├── metrics.py                 # Analysis and metrics calculation
 │   └── parameter_optimization.py  # Parameter tuning and grid search
 └── report/                        # Documentation and reports
+    ├── report.tex                 # Technical report (LaTeX source)
     └── report.pdf                 # Technical report
 ```
 
@@ -204,6 +230,7 @@ StreamlitDRV/
 
 ### TRIMAP
 
+- Optional dependency group; requires a C++ build toolchain (see Prerequisites)
 - More inliers preserve local neighborhoods
 - More outliers help with global structure
 
@@ -218,17 +245,25 @@ StreamlitDRV/
 1. **Import errors**: Ensure all dependencies are installed correctly
 
    ```cmd
-   uv sync  # or pip install -r requirements.txt
+   uv sync
    ```
 
-2. **Memory issues with large datasets**: Use the sample size limitation feature
+   For pip, install the packages listed in the Installation section.
 
-3. **Slow performance**: Consider using smaller datasets or sampling for computationally intensive methods like t-SNE
+2. **TRIMAP installation fails (annoy build error)**: `annoy` is compiled from source and requires a C++ build toolchain. Install MSVC C++ Build Tools (Windows), Xcode Command Line Tools (macOS), or `build-essential` (Linux), then run `uv sync --extra trimap`. TRIMAP is optional; the app runs without it.
 
-4. **File upload issues**: Ensure your CSV/Excel file has numeric columns and proper formatting
+3. **Memory issues with large datasets**: Use the sample size limitation feature
+
+4. **Slow performance**: Consider using smaller datasets or sampling for computationally intensive methods like t-SNE
+
+5. **File upload issues**: Ensure your CSV/Excel file has numeric columns and proper formatting
 
 ### Performance Recommendations:
 
 - **Large datasets** (>5000 samples): Consider sampling or use UMAP/PCA
 - **Many features** (>50): Use feature selection analysis
 - **t-SNE/TRIMAP**: Use with <1000 samples for reasonable performance
+
+## License
+
+MIT, see [LICENSE](LICENSE).
