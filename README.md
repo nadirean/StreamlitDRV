@@ -268,7 +268,3 @@ StreamlitDRV/
 - **Large datasets** (>5000 samples): Consider sampling or use UMAP/PCA
 - **Many features** (>50): Use feature selection analysis
 - **t-SNE/TRIMAP**: Use with <1000 samples for reasonable performance
-
-## License
-
-MIT, see [LICENSE](LICENSE).
