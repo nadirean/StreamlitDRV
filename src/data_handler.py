@@ -1,9 +1,9 @@
 """
 Data loading and preprocessing utilities for StreamlitDRV.
 """
-import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
+import streamlit as st
 from sklearn.datasets import load_diabetes
 from sklearn.preprocessing import StandardScaler
 
@@ -83,29 +83,31 @@ def load_user_dataset():
         return X, y, feature_names, target_column, dataset_name
         
     except Exception as e:
-        st.error(f"Error reading file: {str(e)}")
+        st.error(f"Error reading file: {e!s}")
         st.stop()
 
 
 def handle_missing_values(X, y, feature_names):
-    """Handle NaN values in the dataset."""
-    nan_count = np.isnan(X).sum()
-    total_nans = nan_count.sum()
+    """Handle NaN values in the feature matrix and target column."""
+    feature_nan_count = np.isnan(X).sum()
+    target_nan_count = int(np.isnan(y).sum())
+    total_nans = int(feature_nan_count.sum()) + target_nan_count
     
     if total_nans == 0:
         return X, y
     
-    st.warning(f"⚠️ Found {total_nans} NaN values in the dataset")
+    st.warning(f"Found {total_nans} NaN values in the dataset")
     
-    # Show NaN distribution per feature
+    # Show NaN distribution per column
+    counts = np.append(feature_nan_count, target_nan_count)
     nan_info = pd.DataFrame({
-        'Feature': feature_names,
-        'NaN Count': nan_count,
-        'NaN Percentage': (nan_count / len(X)) * 100
+        'Column': list(feature_names) + ['target'],
+        'NaN Count': counts,
+        'NaN Percentage': (counts / len(X)) * 100
     })
     nan_info = nan_info[nan_info['NaN Count'] > 0]
     if not nan_info.empty:
-        st.write("NaN distribution per feature:")
+        st.write("NaN distribution per column:")
         st.dataframe(nan_info)
     
     handle_nans = st.radio(
@@ -118,13 +120,13 @@ def handle_missing_values(X, y, feature_names):
         st.error("Please clean your data and remove NaN values before proceeding.")
         st.stop()
     
-    # Drop rows with NaN values
+    # Drop rows with NaN values in features or target
     before_shape = X.shape
-    valid_indices = ~np.isnan(X).any(axis=1)
+    valid_indices = ~np.isnan(X).any(axis=1) & ~np.isnan(y)
     X = X[valid_indices]
     y = y[valid_indices]
     
-    st.success(f"✅ Dropped {before_shape[0] - X.shape[0]} rows with NaN values")
+    st.success(f"Dropped {before_shape[0] - X.shape[0]} rows with NaN values")
     st.write(f"Dataset shape after cleaning: {X.shape} (was {before_shape})")
     
     if X.shape[0] < 10:
@@ -150,7 +152,7 @@ def handle_sample_size(X_scaled, y):
     st.write(f"Current dataset size: {current_size} samples")
     
     if current_size > 1000:
-        st.info("💡 Large datasets may take longer to process. Consider using a sample for faster results.")
+        st.info("Large datasets may take longer to process. Consider using a sample for faster results.")
     
     use_sample = st.checkbox(
         "Limit sample size for faster processing",
@@ -190,7 +192,7 @@ def handle_sample_size(X_scaled, y):
         X_scaled = X_scaled[sample_indices]
         y = y[sample_indices]
         
-        st.success(f"✅ Using random sample of {sample_size} samples (from {current_size} total)")
+        st.success(f"Using random sample of {sample_size} samples (from {current_size} total)")
         st.write(f"Final dataset shape for DR: {X_scaled.shape}")
     else:
         st.write("Using all available samples")

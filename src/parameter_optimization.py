@@ -1,13 +1,14 @@
 """
 Parameter optimization and grid analysis for dimensionality reduction methods.
 """
-import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
+import streamlit as st
+import umap
 from sklearn.decomposition import PCA, KernelPCA
 from sklearn.manifold import TSNE
 from sklearn.metrics import mean_squared_error
-import umap
+
 from src.metrics import calculate_trustworthiness
 
 
@@ -33,43 +34,53 @@ def create_heatmap(heatmap_data, x_labels, y_labels, title, colorbar_title, valu
     return fig_heatmap
 
 
+@st.cache_data(show_spinner="Computing reconstruction errors for parameter grid...")
+def compute_pca_parameter_grid(X_scaled):
+    """Compute PCA reconstruction errors for the component/subset grid."""
+    max_components = min(10, X_scaled.shape[1], X_scaled.shape[0] - 1)
+    component_range = list(range(2, max_components + 1))
+    subset_ratios = [0.5, 0.7, 0.8, 0.9, 1.0]
+    
+    reconstruction_errors = []
+    parameter_combinations = []
+    seen_combinations = set()
+    
+    for n_components in component_range:
+        for subset_ratio in subset_ratios:
+            combination = (n_components, subset_ratio)
+            if combination in seen_combinations:
+                continue
+            seen_combinations.add(combination)
+            
+            n_samples = int(X_scaled.shape[0] * subset_ratio)
+            if n_samples < n_components:
+                continue
+                
+            np.random.seed(42)
+            subset_indices = np.random.choice(X_scaled.shape[0], size=n_samples, replace=False)
+            X_subset = X_scaled[subset_indices]
+            
+            pca_temp = PCA(n_components=n_components, random_state=42)
+            X_reduced_temp = pca_temp.fit_transform(X_subset)
+            X_reconstructed_temp = pca_temp.inverse_transform(X_reduced_temp)
+            
+            error = mean_squared_error(X_subset, X_reconstructed_temp)
+            
+            reconstruction_errors.append(error)
+            parameter_combinations.append(combination)
+    
+    return reconstruction_errors, parameter_combinations
+
+
 def analyze_pca_parameters(X_scaled):
     """Analyze PCA parameters through reconstruction error heatmap."""
     st.info("For PCA, we'll analyze reconstruction error across different numbers of components and data subsets.")
     
-    # Create parameter grid for PCA
     max_components = min(10, X_scaled.shape[1], X_scaled.shape[0] - 1)
     component_range = range(2, max_components + 1)
-    
-    # Data subset ratios
     subset_ratios = [0.5, 0.7, 0.8, 0.9, 1.0]
     
-    # Calculate reconstruction errors for different parameter combinations
-    reconstruction_errors = []
-    parameter_combinations = []
-    
-    with st.spinner("Computing reconstruction errors for parameter grid..."):
-        for n_components in component_range:
-            for subset_ratio in subset_ratios:
-                # Create subset of data
-                n_samples = int(X_scaled.shape[0] * subset_ratio)
-                if n_samples < n_components:
-                    continue
-                    
-                np.random.seed(42)
-                subset_indices = np.random.choice(X_scaled.shape[0], size=n_samples, replace=False)
-                X_subset = X_scaled[subset_indices]
-                
-                # Apply PCA
-                pca_temp = PCA(n_components=n_components, random_state=42)
-                X_reduced_temp = pca_temp.fit_transform(X_subset)
-                X_reconstructed_temp = pca_temp.inverse_transform(X_reduced_temp)
-                
-                # Calculate reconstruction error
-                error = mean_squared_error(X_subset, X_reconstructed_temp)
-                
-                reconstruction_errors.append(error)
-                parameter_combinations.append((n_components, subset_ratio))
+    reconstruction_errors, parameter_combinations = compute_pca_parameter_grid(X_scaled)
     
     # Create heatmap data
     heatmap_data = np.full((len(component_range), len(subset_ratios)), np.nan)
@@ -100,14 +111,44 @@ def analyze_pca_parameters(X_scaled):
     optimal_params = parameter_combinations[min_error_idx]
     min_error = reconstruction_errors[min_error_idx]
     
-    st.success(f"🎯 Optimal parameters: {optimal_params[0]} components with {optimal_params[1]:.1%} of data (Error: {min_error:.6f})")
+    st.success(f"Optimal parameters: {optimal_params[0]} components with {optimal_params[1]:.1%} of data (Error: {min_error:.6f})")
+
+
+@st.cache_data(show_spinner="Computing quality scores for KPCA parameter grid...")
+def compute_kpca_parameter_grid(X_sample):
+    """Compute KPCA quality scores for the kernel/gamma grid."""
+    kernel_options = ["rbf", "poly", "sigmoid"]
+    gamma_values = [0.1, 0.5, 1.0, 2.0, 5.0]
+    
+    quality_scores = []
+    param_combinations = []
+    seen_combinations = set()
+    
+    for kernel in kernel_options:
+        for gamma in gamma_values:
+            combination = (kernel, gamma)
+            if combination in seen_combinations:
+                continue
+            seen_combinations.add(combination)
+            
+            try:
+                kpca_temp = KernelPCA(n_components=2, kernel=kernel, gamma=gamma, random_state=42)
+                X_reduced_temp = kpca_temp.fit_transform(X_sample)
+                
+                quality = np.sum(np.var(X_reduced_temp, axis=0))
+                
+                quality_scores.append(quality)
+                param_combinations.append(combination)
+            except Exception:
+                continue
+    
+    return quality_scores, param_combinations
 
 
 def analyze_kpca_parameters(X_scaled):
     """Analyze Kernel PCA parameters through quality score heatmap."""
     st.info("For Kernel PCA, we'll analyze different kernel parameters and their impact on the embedding quality.")
     
-    # Parameter grids for different kernels
     kernel_options = ["rbf", "poly", "sigmoid"]
     gamma_values = [0.1, 0.5, 1.0, 2.0, 5.0]
     
@@ -117,26 +158,7 @@ def analyze_kpca_parameters(X_scaled):
     sample_indices = np.random.choice(X_scaled.shape[0], size=max_samples_kpca, replace=False)
     X_sample = X_scaled[sample_indices]
     
-    # For KPCA, we'll measure the quality using explained variance approximation
-    quality_scores = []
-    param_combinations = []
-    
-    with st.spinner("Computing quality scores for KPCA parameter grid..."):
-        for kernel in kernel_options:
-            for gamma in gamma_values:
-                try:
-                    # Apply KPCA
-                    kpca_temp = KernelPCA(n_components=2, kernel=kernel, gamma=gamma, random_state=42)
-                    X_reduced_temp = kpca_temp.fit_transform(X_sample)
-                    
-                    # Calculate a quality metric (variance of the reduced dimensions)
-                    quality = np.sum(np.var(X_reduced_temp, axis=0))
-                    
-                    quality_scores.append(quality)
-                    param_combinations.append((kernel, gamma))
-                except Exception:
-                    # Skip problematic parameter combinations
-                    continue
+    quality_scores, param_combinations = compute_kpca_parameter_grid(X_sample)
     
     if quality_scores:
         # Create heatmap data
@@ -167,9 +189,46 @@ def analyze_kpca_parameters(X_scaled):
         optimal_params_kpca = param_combinations[max_quality_idx]
         max_quality = quality_scores[max_quality_idx]
         
-        st.success(f"🎯 Best parameters: {optimal_params_kpca[0]} kernel with gamma={optimal_params_kpca[1]} (Quality: {max_quality:.3f})")
+        st.success(f"Best parameters: {optimal_params_kpca[0]} kernel with gamma={optimal_params_kpca[1]} (Quality: {max_quality:.3f})")
     else:
         st.error("Could not compute quality scores for any parameter combination.")
+
+
+@st.cache_data(show_spinner="Computing t-SNE quality scores...")
+def compute_tsne_parameter_grid(X_sample):
+    """Compute t-SNE trustworthiness scores for the perplexity/learning-rate grid."""
+    perplexity_values = [5, 15, 30, 50]
+    learning_rate_values = [50, 100, 200, 500]
+    
+    quality_scores = []
+    param_combinations = []
+    seen_combinations = set()
+    
+    for perplexity in perplexity_values:
+        if perplexity >= X_sample.shape[0]:
+            continue
+        for learning_rate in learning_rate_values:
+            combination = (perplexity, learning_rate)
+            if combination in seen_combinations:
+                continue
+            seen_combinations.add(combination)
+            
+            try:
+                tsne_temp = TSNE(
+                    n_components=2, perplexity=perplexity,
+                    learning_rate=learning_rate, random_state=42,
+                    verbose=0, max_iter=300
+                )
+                X_embedded = tsne_temp.fit_transform(X_sample)
+                
+                trust = calculate_trustworthiness(X_sample, X_embedded)
+                
+                quality_scores.append(trust)
+                param_combinations.append(combination)
+            except Exception:
+                continue
+    
+    return quality_scores, param_combinations
 
 
 def analyze_tsne_parameters(X_scaled):
@@ -183,28 +242,7 @@ def analyze_tsne_parameters(X_scaled):
     sample_indices = np.random.choice(X_scaled.shape[0], size=max_samples_nonlinear, replace=False)
     X_sample = X_scaled[sample_indices]
     
-    quality_scores = []
-    param_combinations = []
-    
-    with st.spinner("Computing t-SNE quality scores..."):
-        for perplexity in perplexity_values:
-            for learning_rate in learning_rate_values:
-                if perplexity < X_sample.shape[0]:  # Ensure perplexity is valid
-                    try:
-                        tsne_temp = TSNE(
-                            n_components=2, perplexity=perplexity, 
-                            learning_rate=learning_rate, random_state=42, 
-                            verbose=0, max_iter=300
-                        )
-                        X_embedded = tsne_temp.fit_transform(X_sample)
-                        
-                        # Calculate trustworthiness
-                        trust = calculate_trustworthiness(X_sample, X_embedded)
-                        
-                        quality_scores.append(trust)
-                        param_combinations.append((perplexity, learning_rate))
-                    except Exception:
-                        continue
+    quality_scores, param_combinations = compute_tsne_parameter_grid(X_sample)
     
     if quality_scores:
         # Create heatmap
@@ -234,7 +272,43 @@ def analyze_tsne_parameters(X_scaled):
         optimal_params = param_combinations[max_idx]
         max_score = quality_scores[max_idx]
         
-        st.success(f"🎯 Best parameters: Perplexity={optimal_params[0]}, Learning Rate={optimal_params[1]} (Trustworthiness: {max_score:.3f})")
+        st.success(f"Best parameters: Perplexity={optimal_params[0]}, Learning Rate={optimal_params[1]} (Trustworthiness: {max_score:.3f})")
+
+
+@st.cache_data(show_spinner="Computing UMAP quality scores...")
+def compute_umap_parameter_grid(X_sample):
+    """Compute UMAP trustworthiness scores for the neighbors/min-dist grid."""
+    n_neighbors_values = [5, 15, 30, 50]
+    min_dist_values = [0.01, 0.1, 0.3, 0.5]
+    
+    quality_scores = []
+    param_combinations = []
+    seen_combinations = set()
+    
+    for n_neighbors in n_neighbors_values:
+        if n_neighbors >= X_sample.shape[0]:
+            continue
+        for min_dist in min_dist_values:
+            combination = (n_neighbors, min_dist)
+            if combination in seen_combinations:
+                continue
+            seen_combinations.add(combination)
+            
+            try:
+                umap_temp = umap.UMAP(
+                    n_components=2, n_neighbors=n_neighbors,
+                    min_dist=min_dist, random_state=42
+                )
+                X_embedded = umap_temp.fit_transform(X_sample)
+                
+                trust = calculate_trustworthiness(X_sample, X_embedded)
+                
+                quality_scores.append(trust)
+                param_combinations.append(combination)
+            except Exception:
+                continue
+    
+    return quality_scores, param_combinations
 
 
 def analyze_umap_parameters(X_scaled):
@@ -248,26 +322,7 @@ def analyze_umap_parameters(X_scaled):
     sample_indices = np.random.choice(X_scaled.shape[0], size=max_samples_nonlinear, replace=False)
     X_sample = X_scaled[sample_indices]
     
-    quality_scores = []
-    param_combinations = []
-    
-    with st.spinner("Computing UMAP quality scores..."):
-        for n_neighbors in n_neighbors_values:
-            for min_dist in min_dist_values:
-                try:
-                    umap_temp = umap.UMAP(
-                        n_components=2, n_neighbors=n_neighbors, 
-                        min_dist=min_dist, random_state=42
-                    )
-                    X_embedded = umap_temp.fit_transform(X_sample)
-                    
-                    # Calculate trustworthiness
-                    trust = calculate_trustworthiness(X_sample, X_embedded)
-                    
-                    quality_scores.append(trust)
-                    param_combinations.append((n_neighbors, min_dist))
-                except Exception:
-                    continue
+    quality_scores, param_combinations = compute_umap_parameter_grid(X_sample)
     
     if quality_scores:
         # Create heatmap
@@ -297,7 +352,7 @@ def analyze_umap_parameters(X_scaled):
         optimal_params = param_combinations[max_idx]
         max_score = quality_scores[max_idx]
         
-        st.success(f"🎯 Best parameters: n_neighbors={optimal_params[0]}, min_dist={optimal_params[1]} (Trustworthiness: {max_score:.3f})")
+        st.success(f"Best parameters: n_neighbors={optimal_params[0]}, min_dist={optimal_params[1]} (Trustworthiness: {max_score:.3f})")
 
 
 def show_parameter_optimization(X_scaled, method):

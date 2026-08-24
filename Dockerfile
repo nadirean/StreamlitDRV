@@ -9,7 +9,7 @@ WORKDIR /app
 RUN pip install uv
 COPY . .
 
-RUN uv sync
+RUN uv sync --extra trimap
 EXPOSE 8501
 
 ENV PATH="/app/.venv/bin:${PATH}"

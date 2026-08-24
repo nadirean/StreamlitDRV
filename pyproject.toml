@@ -11,10 +11,26 @@ dependencies = [
     "scikit-learn>=1.6.1",
     "setuptools>=80.9.0",
     "streamlit>=1.45.0",
-    "trimap>=1.1.4",
     "umap-learn>=0.5.7",
     "pacmap>=0.7.2",
     "openpyxl>=3.0.0",
     "seaborn>=0.13.2",
+]
+
+[project.optional-dependencies]
+trimap = [
+    "trimap>=1.1.4",
     "annoy>=1.17.3",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+]
+
+[tool.ruff.lint]
+ignore = [
+    "C408",
+    "BLE001",
+    "S112",
 ]

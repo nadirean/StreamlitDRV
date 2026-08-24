@@ -1,44 +1,32 @@
 """
 Metrics and analysis functions for dimensionality reduction evaluation.
 """
-import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
+import streamlit as st
 from sklearn.decomposition import PCA
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LinearRegression
+from sklearn.manifold import trustworthiness
 from sklearn.metrics import mean_squared_error
-from sklearn.neighbors import NearestNeighbors
+
 from src.visualizations import (
-    create_variance_plot, create_interactive_variance_plot,
-    create_feature_error_plot, create_rfe_impact_plot
+    create_feature_error_plot,
+    create_interactive_variance_plot,
+    create_rfe_impact_plot,
+    create_variance_plot,
 )
 
 
 def calculate_trustworthiness(X_original, X_embedded, n_neighbors=5):
     """Calculate trustworthiness of the embedding."""
-    # Find nearest neighbors in original space
-    nbrs_orig = NearestNeighbors(n_neighbors=n_neighbors+1).fit(X_original)
-    _, indices_orig = nbrs_orig.kneighbors(X_original)
-    
-    # Find nearest neighbors in embedded space
-    nbrs_emb = NearestNeighbors(n_neighbors=n_neighbors+1).fit(X_embedded)
-    _, indices_emb = nbrs_emb.kneighbors(X_embedded)
-    
-    # Calculate trustworthiness
-    n = X_original.shape[0]
-    trustworthiness = 0
-    
-    for i in range(n):
-        # Get neighbors (excluding self)
-        neighbors_orig = set(indices_orig[i][1:])
-        neighbors_emb = set(indices_emb[i][1:])
-        
-        # Count how many embedded neighbors are also original neighbors
-        intersection = len(neighbors_orig.intersection(neighbors_emb))
-        trustworthiness += intersection / n_neighbors
-    
-    return trustworthiness / n
+    n_samples = X_original.shape[0]
+    effective_neighbors = min(n_neighbors, n_samples - 1)
+    if effective_neighbors < 1:
+        return float("nan")
+    return float(
+        trustworthiness(X_original, X_embedded, n_neighbors=effective_neighbors)
+    )
 
 
 def analyze_pca_variance(X_scaled, feature_names, reducer):
@@ -122,13 +110,20 @@ def display_variance_metrics(selected_components, max_components, selected_varia
 def create_variance_metrics_table(cumulative_var_ratio):
     """Create variance metrics table."""
     st.subheader("Variance Metrics")
+    
+    finite_mask = np.isfinite(cumulative_var_ratio)
+    if not finite_mask.any():
+        st.warning("Variance metrics are not available for this dataset.")
+        return
+    
     metrics_data = []
     
     # Find minimum components for different variance thresholds
     thresholds = [0.8, 0.9, 0.95, 0.99]
     for threshold in thresholds:
-        min_components = np.argmax(cumulative_var_ratio >= threshold) + 1
-        if cumulative_var_ratio[min_components - 1] >= threshold:
+        exceeded = np.flatnonzero(finite_mask & (cumulative_var_ratio >= threshold))
+        if exceeded.size > 0:
+            min_components = int(exceeded[0]) + 1
             metrics_data.append({
                 "Variance Threshold": f"{threshold*100}%",
                 "Min Components Required": min_components,
@@ -136,11 +131,16 @@ def create_variance_metrics_table(cumulative_var_ratio):
             })
     
     # Add current 2D projection metrics
-    metrics_data.append({
-        "Variance Threshold": "Current 2D",
-        "Min Components Required": 2,
-        "Actual Variance Achieved": f"{cumulative_var_ratio[1]:.3f}"
-    })
+    if cumulative_var_ratio.size >= 2 and np.isfinite(cumulative_var_ratio[1]):
+        metrics_data.append({
+            "Variance Threshold": "Current 2D",
+            "Min Components Required": 2,
+            "Actual Variance Achieved": f"{cumulative_var_ratio[1]:.3f}"
+        })
+    
+    if not metrics_data:
+        st.warning("No variance thresholds could be evaluated for this dataset.")
+        return
     
     metrics_df = pd.DataFrame(metrics_data)
     st.dataframe(metrics_df, use_container_width=True)
@@ -181,7 +181,7 @@ def analyze_feature_selection_impact(X_scaled, y, feature_names):
     
     # Create different feature subsets using RFE
     feature_counts = [max(2, len(feature_names) // 4), max(3, len(feature_names) // 2), len(feature_names)]
-    feature_counts = sorted(list(set(feature_counts)))  # Remove duplicates and sort
+    feature_counts = sorted(set(feature_counts))
     
     rfe_results = []
     

@@ -2,17 +2,24 @@
 Main application file for StreamlitDRV.
 """
 import streamlit as st
-from src.config import configure_page, show_header, PARAMETER_GUIDELINES
+
+from src.config import PARAMETER_GUIDELINES, configure_page, show_header
 from src.data_handler import (
-    load_sample_dataset, load_user_dataset, handle_missing_values,
-    scale_data, handle_sample_size, show_dataset_preview
+    handle_missing_values,
+    handle_sample_size,
+    load_sample_dataset,
+    load_user_dataset,
+    scale_data,
+    show_dataset_preview,
 )
-from src.reduction_methods import (
-    show_performance_warning, apply_dimensionality_reduction
-)
-from src.visualizations import show_visualization_results
 from src.metrics import show_metrics_analysis
 from src.parameter_optimization import show_parameter_optimization
+from src.reduction_methods import (
+    apply_dimensionality_reduction,
+    get_available_methods,
+    show_performance_warning,
+)
+from src.visualizations import show_visualization_results
 
 
 def main():
@@ -46,7 +53,7 @@ def main():
     X, y = handle_missing_values(X, y, feature_names)
     
     # Scale data
-    X_scaled, scaler = scale_data(X)
+    X_scaled, _ = scale_data(X)
     
     # Handle sample size
     X_scaled, y = handle_sample_size(X_scaled, y)
@@ -54,10 +61,17 @@ def main():
     # --- 3. Choose Method ---
     st.header("3. Dimensionality Reduction")
     
+    available_methods = get_available_methods()
     method = st.selectbox(
         "Choose dimensionality reduction method:", 
-        ["PCA", "KPCA", "t-SNE", "UMAP", "TRIMAP", "PaCMAP"]
+        available_methods
     )
+    
+    if "TRIMAP" not in available_methods:
+        st.info(
+            "TRIMAP is disabled because its optional dependencies are not installed. "
+            "To enable it, run: uv sync --extra trimap (requires a C++ build toolchain)."
+        )
     
     # Show performance warning for slow methods on large datasets
     show_performance_warning(method, X_scaled.shape[0])

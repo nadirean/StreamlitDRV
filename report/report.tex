@@ -96,6 +96,8 @@ TRIMAP wykorzystuje tripletowe relacje między punktami do zachowania zarówno l
 
 Parametr \texttt{n\_inliers} określa liczbę najbliższych sąsiadów uwzględnianych dla każdego punktu, wpływając na zachowanie lokalnej struktury. Parametr \texttt{n\_outliers} kontroluje liczbę odległych punktów używanych do zachowania struktury globalnej. TRIMAP często zapewnia lepsze zachowanie struktury globalnej niż t-SNE przy porównywalnej jakości reprezentacji lokalnej.
 
+W aplikacji TRIMAP jest metodą opcjonalną: wymaga zainstalowania dodatkowej grupy zależności (\texttt{trimap} wraz z biblioteką \texttt{annoy}, która wymaga dostępnego kompilatora C++). W przypadku braku tych zależności metoda jest automatycznie ukrywana na liście dostępnych opcji, a aplikacja informuje użytkownika o sposobie jej włączenia.
+
 \subsection{Pairwise Controlled Manifold Approximation Projection (PaCMAP)}
 
 PaCMAP kontroluje zachowanie struktury lokalnej i globalnej poprzez precyzyjne zarządzanie trzema typami par punktów: bliskimi parami (Near Pairs) zachowującymi strukturę lokalną, średnimi parami (Mid-Near Pairs) łączącymi regiony lokalne oraz dalekimi parami (Far Pairs) zachowującymi strukturę globalną.
@@ -110,9 +112,9 @@ Aplikacja oferuje kompleksowy i intuicyjny przepływ pracy, który prowadzi uży
 
 System obsługuje dwa główne źródła danych: wbudowany zbiór danych dotyczący cukrzycy, który służy jako przykład demonstracyjny, oraz możliwość przesłania własnych plików w formatach CSV i Excel. Dla przesyłanych plików aplikacja automatycznie wykrywa typy kolumn i umożliwia użytkownikowi wybór zmiennej docelowej oraz cech do analizy.
 
-Moduł preprocessingu implementuje kompleksowy pipeline przygotowania danych. System automatycznie identyfikuje i obsługuje brakujące wartości poprzez usuwanie wierszy z niepełnymi danymi, co zapewnia stabilność algorytmów redukcji wymiarowości. Wszystkie dane numeryczne są standaryzowane przy użyciu StandardScaler, co jest kluczowe dla poprawnego działania metod opartych na odległościach.
+Moduł preprocessingu implementuje kompleksowy pipeline przygotowania danych. System wykrywa brakujące wartości zarówno w cechach, jak i w zmiennej docelowej, po czym użytkownik decyduje, czy usunąć niepełne wiersze, czy przerwać przetwarzanie w celu wcześniejszego oczyszczenia danych. Wszystkie dane numeryczne są standaryzowane przy użyciu StandardScaler, co jest kluczowe dla poprawnego działania metod opartych na odległościach.
 
-Dla dużych zbiorów danych aplikacja oferuje funkcjonalność próbkowania, która umożliwia ograniczenie liczby obserwacji w celu przyspieszenia obliczeń. Użytkownik może określić maksymalną liczbę próbek, a system zastosuje losowe próbkowanie stratyfikowane zachowujące proporcje klas w zmiennej docelowej.
+Dla dużych zbiorów danych aplikacja oferuje funkcjonalność próbkowania, która umożliwia ograniczenie liczby obserwacji w celu przyspieszenia obliczeń. Użytkownik może określić liczbę próbek, a system zastosuje losowe próbkowanie ze stałym ziarnem generatora liczb pseudolosowych, co zapewnia powtarzalność wyników.
 
 \subsection{Interfejs konfiguracji i kontrola parametrów}
 
@@ -132,15 +134,15 @@ System automatycznie dostosowuje skalę kolorów do typu zmiennej docelowej - dl
 
 Aplikacja implementuje rozbudowany system oceny jakości redukcji wymiarowości. Dla metod liniowych, takich jak PCA, obliczana jest analiza wariancji wyjaśnionej, która pokazuje, jaka część całkowitej wariancji danych została zachowana w reprezentacji dwuwymiarowej.
 
-System oblicza również metryki rekonstrukcji, które mierzą, jak dobrze oryginalne dane mogą być odtworzone z reprezentacji zredukowanej. Obejmuje to błąd średniokwadratowy rekonstrukcji oraz wizualizacje rozkładu błędów, które pomagają zidentyfikować punkty szczególnie trudne do reprezentacji w niższej wymiarowości.
+System oblicza również metryki rekonstrukcji dla metody PCA, które mierzą, jak dobrze oryginalne dane mogą być odtworzone z reprezentacji zredukowanej. Obejmuje to błąd średniokwadratowy rekonstrukcji oraz wizualizacje rozkładu błędów per cecha, które pomagają zidentyfikować zmienne szczególnie trudne do reprezentacji w niższej wymiarowości.
 
-Dla wszystkich metod dostępna jest analiza zachowania odległości, która porównuje odległości między punktami w przestrzeni oryginalnej i zredukowanej, pomagając ocenić, jak dobrze metoda zachowuje strukturę danych.
+Dla metod nieliniowych aplikacja wyświetla ograniczony zestaw metryk, informując użytkownika o charakterze wybranej metody. Jakość osadzeń oceniana jest natomiast za pomocą miary trustworthiness, która mierzy, w jakim stopniu sąsiedztwa w przestrzeni zredukowanej odpowiadają sąsiedztwom w przestrzeni oryginalnej; miara ta wykorzystywana jest również podczas optymalizacji parametrów metod t-SNE i UMAP.
 
 \subsection{Optymalizacja parametrów}
 
-Zaawansowana funkcjonalność optymalizacji parametrów umożliwia automatyczne przeszukiwanie przestrzeni parametrów w celu znalezienia optymalnych ustawień dla danego zbioru danych. System implementuje przeszukiwanie siatki (grid search) dla kluczowych parametrów każdej metody.
+Zaawansowana funkcjonalność optymalizacji parametrów umożliwia automatyczne przeszukiwanie przestrzeni parametrów w celu znalezienia optymalnych ustawień dla danego zbioru danych. System implementuje przeszukiwanie siatki (grid search) dla kluczowych parametrów wybranych metod: liczby składowych i udziału podzbioru danych dla PCA, typu jądra oraz parametru gamma dla Kernel PCA, perplexity i learning rate dla t-SNE oraz n\_neighbors i min\_dist dla UMAP. Wyniki obliczeń są buforowane, dzięki czemu ponowne uruchomienia analizy nie wymagają powtarzania obliczeń dla już ocenionych kombinacji parametrów.
 
-Wyniki optymalizacji są prezentowane w postaci interaktywnych map ciepła, które wizualizują jakość wyników dla różnych kombinacji parametrów. Mapy ciepła używają różnych metryk jakości, takich jak zachowanie odległości lokalnych czy globalna struktura danych, umożliwiając użytkownikowi wybór parametrów optymalnych dla konkretnego celu analizy.
+Wyniki optymalizacji są prezentowane w postaci interaktywnych map ciepła, które wizualizują jakość wyników dla różnych kombinacji parametrów. Mapy ciepła wykorzystują metryki jakości dopasowane do danej metody: błąd rekonstrukcji (MSE) dla PCA, wariancję komponentów dla Kernel PCA oraz trustworthiness dla t-SNE i UMAP, umożliwiając użytkownikowi wybór parametrów optymalnych dla konkretnego celu analizy.
 
 System automatycznie identyfikuje i wyróżnia kombinacje parametrów dające najlepsze wyniki, a także dostarcza szczegółowe wyjaśnienia dotyczące interpretacji wyników optymalizacji.
 
@@ -148,7 +150,7 @@ System automatycznie identyfikuje i wyróżnia kombinacje parametrów dające na
 
 Projekt wykorzystuje nowoczesne narzędzia do zarządzania zależnościami, w szczególności menedżer pakietów \texttt{uv}, który zapewnia szybką instalację i deterministyczne środowisko. Aplikacja została skonteneryzowana przy użyciu Docker, co ułatwia wdrażanie i zapewnia spójność środowiska uruchomieniowego.
 
-Kluczowe biblioteki obejmują Streamlit jako framework webowy, scikit-learn dla klasycznych metod uczenia maszynowego, oraz specjalistyczne implementacje UMAP, TRIMAP i PaCMAP. Wizualizacje są realizowane przy użyciu Plotly, co zapewnia interaktywność i wysoką jakość graficzną.
+Kluczowe biblioteki obejmują Streamlit jako framework webowy, scikit-learn dla klasycznych metod uczenia maszynowego, oraz specjalistyczne implementacje UMAP, TRIMAP (jako zależność opcjonalną) i PaCMAP. Wizualizacje są realizowane przy użyciu Plotly, co zapewnia interaktywność i wysoką jakość graficzną.
 
 Aplikacja implementuje mechanizmy optymalizacji wydajności, w tym ostrzeżenia dla dużych zbiorów danych, możliwość próbkowania oraz inteligentne dobieranie domyślnych parametrów. Obsługa błędów i walidacja danych zapewniają stabilność działania w różnych scenariuszach użycia.
 
