@@ -2,6 +2,11 @@
 
 A comprehensive Streamlit application for interactive dimensionality reduction and data visualization. This tool allows users to explore various dimensionality reduction techniques with their own datasets or sample data, providing detailed analysis and parameter optimization capabilities.
 
+PDF reports available in [`reports/`](reports/) — English and Polish versions:
+
+- [English report](reports/report_en.pdf)
+- [Polish report](reports/report_pl.pdf)
+
 ![Main view](docs/screenshot-main.png)
 
 ## Features
@@ -169,17 +174,17 @@ StreamlitDRV/
 ├── LICENSE                         # MIT license
 ├── README.md                       # This file
 ├── docs/                           # Screenshots and documentation assets
-├── src/                           # Source code modules
-│   ├── __init__.py                # Package initialization
-│   ├── config.py                  # Configuration and constants
-│   ├── data_handler.py            # Data loading and preprocessing
-│   ├── reduction_methods.py       # Dimensionality reduction methods
-│   ├── visualizations.py          # Plotting and visualization functions
-│   ├── metrics.py                 # Analysis and metrics calculation
-│   └── parameter_optimization.py  # Parameter tuning and grid search
-└── report/                        # Documentation and reports
-    ├── report.tex                 # Technical report (LaTeX source)
-    └── report.pdf                 # Technical report
+├── reports/                       # Compiled reports (PDF)
+│   ├── report_en.pdf
+│   └── report_pl.pdf
+└── src/                           # Source code modules
+    ├── __init__.py                # Package initialization
+    ├── config.py                  # Configuration and constants
+    ├── data_handler.py            # Data loading and preprocessing
+    ├── reduction_methods.py       # Dimensionality reduction algorithms
+    ├── visualizations.py          # Plotting and visualization functions
+    ├── metrics.py                 # Quality metrics and evaluation
+    └── parameter_optimization.py  # Grid search and parameter tuning
 ```
 
 ## Module Overview
