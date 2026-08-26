@@ -1,5 +1,7 @@
 # StreamlitDRV - Dimensionality Reduction Visualization
 
+*Course: Visualization of Large Datasets (Wizualizacja Duzych Zbiorow Danych) · AGH University of Kraków*
+
 A comprehensive Streamlit application for interactive dimensionality reduction and data visualization. This tool allows users to explore various dimensionality reduction techniques with their own datasets or sample data, providing detailed analysis and parameter optimization capabilities.
 
 PDF reports available in [`reports/`](reports/) — English and Polish versions:
@@ -268,3 +270,9 @@ StreamlitDRV/
 - **Large datasets** (>5000 samples): Consider sampling or use UMAP/PCA
 - **Many features** (>50): Use feature selection analysis
 - **t-SNE/TRIMAP**: Use with <1000 samples for reasonable performance
+
+## Authors
+
+- Wojciech Bartoszek
+- Bartosz Gacek
+- Jarosław Kołdun
