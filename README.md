@@ -1,6 +1,6 @@
 # StreamlitDRV - Dimensionality Reduction Visualization
 
-*Course: Visualization of Large Datasets (Wizualizacja Duzych Zbiorow Danych) · AGH University of Kraków*
+*Course: Visualization of Large Datasets (Wizualizacja Dużych Zbiorów Danych) · AGH University of Kraków*
 
 A comprehensive Streamlit application for interactive dimensionality reduction and data visualization. This tool allows users to explore various dimensionality reduction techniques with their own datasets or sample data, providing detailed analysis and parameter optimization capabilities.
 
